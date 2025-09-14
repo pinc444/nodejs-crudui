@@ -514,21 +514,345 @@ tr:hover {
   }
 }
 
-/* High contrast mode support */
-@media (prefers-contrast: high) {
+/* Pagination styles */
+.pagination-info {
+  text-align: center;
+  margin: 15px 0;
+  font-size: 14px;
+  color: #666;
+  background: #f8f9fa;
+  padding: 8px 16px;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+
+.pagination-btn {
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #333;
+  background: white;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.pagination-btn:hover {
+  background: #f8f9fa;
+  border-color: #667eea;
+  color: #667eea;
+  transform: translateY(-1px);
+}
+
+.pagination-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: #667eea;
+}
+
+.pagination-dots {
+  padding: 8px 4px;
+  color: #666;
+}
+
+/* Info badge for read-only tables */
+.info-badge {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+  color: #333;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Form actions styling */
+.form-actions {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* View field styling */
+.view-field {
+  padding: 10px 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  font-family: inherit;
+  font-size: 14px;
+  color: #2c3e50;
+}
+
+.view-input {
+  background-color: #f8f9fa !important;
+  color: #6c757d !important;
+  border: 2px solid #e0e0e0 !important;
+}
+
+/* Advanced search modal */
+.advanced-search-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+}
+
+.advanced-search-modal.active {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.advanced-search-content {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.search-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-row select,
+.search-row input {
+  padding: 8px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.search-row .remove-row {
+  background: #ff6b6b;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.add-search-row {
+  background: linear-gradient(135deg, #51cf66 0%, #40c057 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  margin-bottom: 15px;
+}
+
+/* Date filters */
+.date-filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin: 10px 0;
+  flex-wrap: wrap;
+}
+
+.date-filters label {
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.date-filters input,
+.date-filters select {
+  padding: 6px 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.date-filters button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* Column resizing */
+.resizable-column {
+  position: relative;
+}
+
+.resize-handle {
+  position: absolute;
+  right: -3px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  border-right: 2px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.resize-handle:hover,
+.resize-handle.active {
+  border-right-color: #667eea;
+}
+
+/* Sortable columns indicator */
+th[onclick]:not([data-col="__actions__"]):not([data-col="__editdelete__"]):hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+}
+
+th[onclick]::after {
+  content: ' ⇅';
+  opacity: 0.5;
+  font-size: 12px;
+}
+
+th.sort-asc[onclick]::after,
+th.sort-desc[onclick]::after {
+  opacity: 1;
+}
+
+/* Loading states */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+  position: relative;
+}
+
+.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid #667eea;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Success/Error messages */
+.success-message {
+  background: #d4edda;
+  color: #155724;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  border: 1px solid #c3e6cb;
+}
+
+.warning-message {
+  background: #fff3cd;
+  color: #856404;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  border: 1px solid #ffeaa7;
+}
+
+/* Responsive pagination */
+@media (max-width: 768px) {
+  .pagination {
+    gap: 4px;
+  }
+  
+  .pagination-btn {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  
+  .pagination-info {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+  
+  .advanced-search-content {
+    padding: 20px;
+  }
+  
+  .search-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .date-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .controls-row {
+    gap: 8px;
+  }
+  
+  .controls-left,
+  .controls-right {
+    gap: 8px;
+  }
+}
+
+/* Print styles */
+@media print {
   body {
-    background: #000;
-    color: #fff;
+    background: white;
+    font-size: 12px;
   }
   
   .container {
-    background: #000;
-    border: 2px solid #fff;
+    box-shadow: none;
+    padding: 0;
+    max-width: none;
   }
   
-  .table-card {
-    background: #000;
-    border: 2px solid #fff;
+  .controls-row,
+  .pagination,
+  .pagination-info,
+  .btn {
+    display: none !important;
+  }
+  
+  table {
+    width: 100%;
+    font-size: 11px;
+  }
+  
+  th, td {
+    padding: 4px 6px;
+    border: 1px solid #ccc;
   }
 }
 
