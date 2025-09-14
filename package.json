@@ -1,11 +1,21 @@
 {
   "name": "crudui",
-  "version": "0.2.5",
-  "description": "Auto CRUD web pages for any MySQL table, like lazymofo for Node.js",
+  "version": "1.0.0",
+  "description": "Advanced configurable CRUD UI for MySQL tables with modern features",
   "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "example": "node example.js"
+  },
+  "keywords": ["crud", "mysql", "admin", "ui", "express", "database"],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
     "mysql2": "^3.9.1",
     "body-parser": "^1.20.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
