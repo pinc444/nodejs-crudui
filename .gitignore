@@ -14,3 +14,7 @@ dist/
 build/
 tmp/
 temp/
+
+# Demo and test files
+demo.html
+test-server.js
