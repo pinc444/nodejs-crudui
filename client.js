@@ -35,7 +35,18 @@ function toggleInlineEdit(btn) {
 
   document.querySelectorAll('.grid-view').forEach(inp => inp.style.display = (!inlineEditMode ? '' : 'none'));
   document.querySelectorAll('.grid-edit').forEach(inp => inp.style.display = (inlineEditMode ? '' : 'none'));
-  //document.querySelectorAll('.inline-actions').forEach(span => span.style.display = (inlineEditMode ? '' : 'none'));
+  
+  // Show/hide save button
+  const saveBtn = document.querySelector('.save-inline-btn');
+  if (saveBtn) {
+    if (inlineEditMode) {
+      saveBtn.style.display = 'inline-block';
+      saveBtn.classList.add('show');
+    } else {
+      saveBtn.style.display = 'none';
+      saveBtn.classList.remove('show');
+    }
+  }
 }
 
 function saveChanges(btn){  
