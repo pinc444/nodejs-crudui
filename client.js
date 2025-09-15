@@ -41,7 +41,7 @@ function toggleInlineEdit(btn) {
 function saveChanges(btn){  
  
   document.querySelectorAll('.grid-cell').forEach((inp) => {
-    const col_name =  inp.getElementsByClassName('colunm-name')[0].value;
+    const col_name =  inp.getElementsByClassName('column-name')[0].value;
     const old_value =  inp.getElementsByClassName('old_value')[0].innerText;
     const new_value =  inp.getElementsByClassName('edit-input')[0].value;
     const data = `field=${col_name}&value=${new_value}`;
@@ -160,7 +160,138 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-function view_edit_toggle() {
+// Advanced Search functionality
+function showAdvancedSearch() {
+  const advancedModal = document.getElementById('advanced-search-modal');
+  if (advancedModal) {
+    advancedModal.style.display = 'block';
+  } else {
+    // Create advanced search modal if it doesn't exist
+    createAdvancedSearchModal();
+  }
+}
+
+function hideAdvancedSearch() {
+  const advancedModal = document.getElementById('advanced-search-modal');
+  if (advancedModal) {
+    advancedModal.style.display = 'none';
+  }
+}
+
+function createAdvancedSearchModal() {
+  const searchBox = document.getElementById('search-box');
+  if (!searchBox) return;
+  
+  const table = searchBox.getAttribute('data-table');
+  const modal = document.createElement('div');
+  modal.id = 'advanced-search-modal';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Advanced Search</h3>
+        <span class="close-btn" onclick="hideAdvancedSearch()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="search-filters">
+          <div class="filter-group">
+            <label>Search in columns:</label>
+            <div id="column-search-options"></div>
+          </div>
+          <div class="filter-group">
+            <label>Search term:</label>
+            <input type="text" id="advanced-search-term" placeholder="Enter search term...">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="applyAdvancedSearch()" class="btn btn-primary">Search</button>
+        <button onclick="clearAdvancedSearch()" class="btn">Clear</button>
+        <button onclick="hideAdvancedSearch()" class="btn">Cancel</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  // Populate column options
+  const columnOptions = document.getElementById('column-search-options');
+  const checkboxes = document.querySelectorAll('.col-checkbox');
+  checkboxes.forEach(cb => {
+    const label = document.createElement('label');
+    label.innerHTML = `<input type="checkbox" value="${cb.value}" checked> ${cb.value}`;
+    columnOptions.appendChild(label);
+  });
+  
+  modal.style.display = 'block';
+}
+
+function applyAdvancedSearch() {
+  const searchTerm = document.getElementById('advanced-search-term').value;
+  const searchBox = document.getElementById('search-box');
+  if (searchBox && searchTerm) {
+    searchBox.value = searchTerm;
+    searchBox.dispatchEvent(new Event('keydown', { key: 'Enter' }));
+  }
+  hideAdvancedSearch();
+}
+
+function clearAdvancedSearch() {
+  const searchTerm = document.getElementById('advanced-search-term');
+  const searchBox = document.getElementById('search-box');
+  if (searchTerm) searchTerm.value = '';
+  if (searchBox) {
+    searchBox.value = '';
+    searchBox.dispatchEvent(new Event('input'));
+  }
+}
+
+// Date Filter functionality
+function applyDateFilter() {
+  const dateFrom = document.getElementById('date-from').value;
+  const dateTo = document.getElementById('date-to').value;
+  const dateColumn = document.getElementById('date-column-select')?.value || 
+                    document.querySelectorAll('[data-col]')[0]?.getAttribute('data-col');
+  
+  if (!dateFrom && !dateTo) {
+    alert('Please select at least one date');
+    return;
+  }
+  
+  // Apply client-side date filtering
+  document.querySelectorAll('.table-row').forEach(tr => {
+    const dateCell = tr.querySelector(`td[data-col="${dateColumn}"]`);
+    if (!dateCell) return;
+    
+    const cellValue = dateCell.textContent.trim();
+    const cellDate = new Date(cellValue);
+    
+    let show = true;
+    if (dateFrom && cellDate < new Date(dateFrom)) show = false;
+    if (dateTo && cellDate > new Date(dateTo)) show = false;
+    
+    tr.style.display = show ? '' : 'none';
+  });
+}
+
+function toggleDateFilters() {
+  const dateFilters = document.getElementById('date-filters');
+  if (dateFilters) {
+    dateFilters.style.display = dateFilters.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+function clearDateFilter() {
+  const dateFrom = document.getElementById('date-from');
+  const dateTo = document.getElementById('date-to');
+  if (dateFrom) dateFrom.value = '';
+  if (dateTo) dateTo.value = '';
+  
+  // Show all rows again
+  document.querySelectorAll('.table-row').forEach(tr => {
+    tr.style.display = '';
+  });
+}
+
+function toggleViewEdit() {
   var form = document.getElementById('view-edit-form');
   var edit = form.classList.toggle('edit-mode');
   var inputs = form.querySelectorAll('input:not([type=submit])');

@@ -1,536 +1,335 @@
 /*
- * Enhanced CrudUI Client-side JavaScript
- * Features: pagination, advanced search, date filters, column resizing, modern interactions
- */
+ Client-side behaviors:
+ - instant client-side filtering (as you type)
+ - Enter key triggers full page search (URL param) so server-side search/sort/export work
+ - clickable headers: pointer cursor; clicking toggles asc/desc; shift+click for multi-column
+ - Columns dropdown allows show/hide columns; visible columns are encoded into links (visible=col1,col2)
+ - Export CSV and headerSort include visible and search params
+*/
 let inlineEditMode = false;
-let sortOrder = [];
-let advancedSearchModal = null;
 
-// Helper to read current visible columns (checkboxes)
+// helper to read current visible columns (checkboxes)
 function getVisibleColumns() {
   let checked = Array.from(document.querySelectorAll('.col-checkbox'))
     .filter(cb => cb.checked)
     .map(cb => cb.value);
-  // Always include the action columns so buttons remain visible
+  // always include the action columns so buttons remain visible
   return checked.concat(['__actions__','__editdelete__']);
 }
 
-// Apply visibility: show/hide cells and headers based on list (fields)
+// apply visibility: show/hide cells and headers based on list (fields)
 function applyColumnVisibility(visibleCols) {
-  // Headers
+  // headers
   document.querySelectorAll('th[data-col]').forEach(th => {
     th.style.display = visibleCols.includes(th.getAttribute('data-col')) ? '' : 'none';
   });
-  // Body cells
+  // body cells
   document.querySelectorAll('td[data-col]').forEach(td => {
     td.style.display = visibleCols.includes(td.getAttribute('data-col')) ? '' : 'none';
   });
 }
 
-// Toggle inline edit mode
 function toggleInlineEdit(btn) {
   inlineEditMode = !inlineEditMode;
   btn.classList.toggle('active', inlineEditMode);
 
-  const saveBtn = document.querySelector('.save-inline-btn');
-  if (saveBtn) {
-    saveBtn.style.display = inlineEditMode ? 'inline-block' : 'none';
-  }
-
-  document.querySelectorAll('.grid-view').forEach(elem => {
-    elem.style.display = inlineEditMode ? 'none' : '';
-  });
-  document.querySelectorAll('.grid-edit').forEach(elem => {
-    elem.style.display = inlineEditMode ? '' : 'none';
-  });
+  document.querySelectorAll('.grid-view').forEach(inp => inp.style.display = (!inlineEditMode ? '' : 'none'));
+  document.querySelectorAll('.grid-edit').forEach(inp => inp.style.display = (inlineEditMode ? '' : 'none'));
+  //document.querySelectorAll('.inline-actions').forEach(span => span.style.display = (inlineEditMode ? '' : 'none'));
 }
 
-// Save all inline changes
-function saveChanges(btn) {
-  const changedElements = [];
-  
-  document.querySelectorAll('.grid-cell').forEach((cell) => {
-    const oldValueElem = cell.querySelector('.old_value');
-    const editInputElem = cell.querySelector('.edit-input');
-    const columnNameElem = cell.querySelector('.column-name');
-    const formElem = cell.querySelector('form');
-    
-    if (oldValueElem && editInputElem && columnNameElem && formElem) {
-      const oldValue = oldValueElem.innerText;
-      const newValue = editInputElem.value;
-      const columnName = columnNameElem.value;
-      const formAction = formElem.getAttribute('action');
-      
-      if (oldValue !== newValue) {
-        changedElements.push({
-          formAction,
-          data: `field=${encodeURIComponent(columnName)}&value=${encodeURIComponent(newValue)}`
-        });
-      }
-    }
-  });
-
-  if (changedElements.length === 0) {
-    showMessage('No changes to save', 'info');
-    return;
-  }
-
-  // Show loading state
-  btn.classList.add('loading');
-  btn.disabled = true;
-
-  // Save all changes
-  Promise.all(changedElements.map(change => {
-    return fetch(change.formAction, {
+function saveChanges(btn){  
+ 
+  document.querySelectorAll('.grid-cell').forEach((inp) => {
+    const col_name =  inp.getElementsByClassName('column-name')[0].value;
+    const old_value =  inp.getElementsByClassName('old_value')[0].innerText;
+    const new_value =  inp.getElementsByClassName('edit-input')[0].value;
+    const data = `field=${col_name}&value=${new_value}`;
+    const form_action  = inp.getElementsByTagName("form")[0].getAttribute('action');
+    if(old_value !== new_value){    
+      fetch(form_action, {
       method: "POST",
       headers: {'content-type': 'application/x-www-form-urlencoded'},
-      body: change.data
-    });
-  })).then(() => {
-    showMessage('Changes saved successfully', 'success');
-    setTimeout(() => window.location.reload(), 1000);
-  }).catch(error => {
-    console.error('Error saving changes:', error);
-    showMessage('Error saving changes', 'error');
-    btn.classList.remove('loading');
-    btn.disabled = false;
+      body: data
+    }).then(res => {
+      console.log("Request complete! response:", res);
+    }).catch(e=> console.log(e));
+    }
   });
+  window.location.reload();
 }
 
-// Toggle the columns panel
+// toggle the columns panel
 function toggleColumnsDropdown(btn) {
   const dd = btn.closest('.columns-dropdown');
   dd.classList.toggle('open');
 }
 
-// Called by column checkbox change
+// called by column checkbox change
 function onColumnCheckboxChange() {
   const visible = getVisibleColumns();
   applyColumnVisibility(visible);
+  // update any URL-building functions will read checkboxes directly
 }
 
-// Header sorting logic
+// Header sorting logic: toggles asc/desc for column; shiftKey for multi-column builds list
+let sortOrder = [];
 function headerSort(table, col, shiftKey) {
-  // Ignore action columns for sorting
+  // ignore action columns for sorting
   if (col === '__actions__' || col === '__editdelete__') return;
-  
-  // Compute visible columns to preserve
+  // compute visible columns to preserve
   const visible = getVisibleColumns().filter(x => x !== '__actions__' && x !== '__editdelete__');
   let idx = sortOrder.findIndex(x => x.col === col);
-  
   if (idx >= 0) {
-    // Toggle direction
+    // toggle direction
     sortOrder[idx].dir = sortOrder[idx].dir === 'asc' ? 'desc' : 'asc';
     if (!shiftKey) sortOrder = [sortOrder[idx]];
   } else {
     if (shiftKey) sortOrder.push({col, dir:'asc'});
     else sortOrder = [{col, dir:'asc'}];
   }
-  
-  navigateWithParams(table, { sort: sortOrder, visible: visible });
+  const sortParam = sortOrder.map(x => x.col + ',' + x.dir).join(',');
+  const visibleParam = visible.join(',');
+  const searchVal = encodeURIComponent(document.getElementById('search-box').value || '');
+  let q = '?';
+  if (sortParam) q += 'sort=' + encodeURIComponent(sortParam) + '&';
+  if (visibleParam) q += 'visible=' + encodeURIComponent(visibleParam) + '&';
+  q += 'search=' + searchVal;
+  window.location = '/' + encodeURIComponent(table) + q;
 }
 
 // Export CSV includes visible columns and search/sort params
 function exportCSV(table) {
   const visibleParam = getVisibleColumns().filter(x => x !== '__actions__' && x !== '__editdelete__').join(',');
-  const searchVal = encodeURIComponent(document.getElementById('search-box')?.value || '');
+  const searchVal = encodeURIComponent(document.getElementById('search-box').value || '');
   const sortParam = sortOrder.map(x => x.col + ',' + x.dir).join(',');
-  
   let q = '?csv=1';
   if (visibleParam) q += '&visible=' + encodeURIComponent(visibleParam);
   if (sortParam) q += '&sort=' + encodeURIComponent(sortParam);
   if (searchVal) q += '&search=' + searchVal;
-  
-  window.location = getCurrentPath() + '/' + encodeURIComponent(table) + q;
+  window.location = '/' + encodeURIComponent(table) + q;
 }
 
-// Navigate with parameters
-function navigateWithParams(table, params = {}) {
+// instant client-side filter + Enter triggers server URL search
+window.addEventListener('DOMContentLoaded', function() {
   const searchBox = document.getElementById('search-box');
-  const currentSearch = searchBox ? searchBox.value : '';
-  const currentPage = new URLSearchParams(window.location.search).get('page') || '1';
-  
-  let url = getCurrentPath() + '/' + encodeURIComponent(table) + '?';
-  
-  if (params.sort && params.sort.length) {
-    const sortParam = params.sort.map(x => x.col + ',' + x.dir).join(',');
-    url += 'sort=' + encodeURIComponent(sortParam) + '&';
-  }
-  
-  if (params.visible && params.visible.length) {
-    url += 'visible=' + encodeURIComponent(params.visible.join(',')) + '&';
-  }
-  
-  if (currentSearch) {
-    url += 'search=' + encodeURIComponent(currentSearch) + '&';
-  }
-  
-  if (params.page && params.page !== '1') {
-    url += 'page=' + params.page + '&';
-  }
-  
-  window.location = url.replace(/[&?]$/, '');
-}
+  if (!searchBox) return;
 
-// Get current path (handles root path configuration)
-function getCurrentPath() {
-  const pathParts = window.location.pathname.split('/');
-  // Remove table name from end if present
-  pathParts.pop();
-  return pathParts.join('/') || '';
-}
+  // instant client-side filtering
+  searchBox.addEventListener('input', function() {
+    const val = searchBox.value.toLowerCase();
+    document.querySelectorAll('.table-row').forEach(tr => {
+      let show = false;
+      tr.querySelectorAll('td[data-col]').forEach(td => {
+        if (td.innerText.toLowerCase().indexOf(val) !== -1) show = true;
+      });
+      tr.style.display = show ? '' : 'none';
+    });
+  });
 
-// View/Edit form toggle
-function toggleViewEdit() {
-  const form = document.getElementById('view-edit-form');
-  const toggleBtn = document.getElementById('view-edit-toggle-btn');
-  const saveBtn = document.getElementById('view-edit-save-btn');
-  
-  const isEditMode = form.classList.toggle('edit-mode');
-  
-  const inputs = form.querySelectorAll('input:not([type=submit]):not([type=hidden])');
-  inputs.forEach(input => {
-    if (isEditMode && !input.readOnly) {
-      input.removeAttribute('readonly');
-      input.classList.remove('view-input');
-    } else {
-      input.setAttribute('readonly', 'readonly');
-      input.classList.add('view-input');
+  // Enter -> reload with search URL param (server-side)
+  searchBox.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();      
+      const table = searchBox.getAttribute('data-table');
+      const visibleParam = getVisibleColumns().filter(x => x !== '__actions__' && x !== '__editdelete__').join(',');
+      const sortParam = sortOrder.map(x => x.col + ',' + x.dir).join(',');
+      let q = '?search=' + encodeURIComponent(searchBox.value || '');
+      if (visibleParam) q += '&visible=' + encodeURIComponent(visibleParam);
+      if (sortParam) q += '&sort=' + encodeURIComponent(sortParam);
+      window.location = '/' + encodeURIComponent(table) + q;
     }
   });
-  
-  if (isEditMode) {
-    saveBtn.style.display = 'inline-block';
-    toggleBtn.textContent = 'Cancel Edit';
-    toggleBtn.classList.add('active');
-  } else {
-    saveBtn.style.display = 'none';
-    toggleBtn.textContent = 'Edit';
-    toggleBtn.classList.remove('active');
-  }
-}
 
-// Advanced search functionality
+  // Column checkboxes: attach change handlers
+  document.querySelectorAll('.col-checkbox').forEach(cb => cb.addEventListener('change', onColumnCheckboxChange));
+
+  // initialize visibility from any preselected checkboxes
+  const visibleNow = Array.from(document.querySelectorAll('.col-checkbox')).filter(cb=>cb.checked).map(cb=>cb.value).concat(['__actions__','__editdelete__']);
+  applyColumnVisibility(visibleNow);
+
+  // initialize sortOrder from server-sent attributes (if present)
+  const sortAttr = document.getElementById('table-root')?.getAttribute('data-sort') || '';
+  if (sortAttr) {
+    const toks = sortAttr.split(',');
+    for (let i=0; i<toks.length; i+=2) {
+      const col = toks[i];
+      const dir = toks[i+1] || 'asc';
+      sortOrder.push({ col, dir });
+    }
+  }
+});
+
+// Advanced Search functionality
 function showAdvancedSearch() {
-  if (!advancedSearchModal) {
+  const advancedModal = document.getElementById('advanced-search-modal');
+  if (advancedModal) {
+    advancedModal.style.display = 'block';
+  } else {
+    // Create advanced search modal if it doesn't exist
     createAdvancedSearchModal();
   }
-  advancedSearchModal.classList.add('active');
-  document.body.style.overflow = 'hidden';
 }
 
 function hideAdvancedSearch() {
-  if (advancedSearchModal) {
-    advancedSearchModal.classList.remove('active');
-    document.body.style.overflow = '';
+  const advancedModal = document.getElementById('advanced-search-modal');
+  if (advancedModal) {
+    advancedModal.style.display = 'none';
   }
 }
 
 function createAdvancedSearchModal() {
+  const searchBox = document.getElementById('search-box');
+  if (!searchBox) return;
+  
+  const table = searchBox.getAttribute('data-table');
   const modal = document.createElement('div');
-  modal.className = 'advanced-search-modal';
+  modal.id = 'advanced-search-modal';
   modal.innerHTML = `
-    <div class="advanced-search-content">
-      <h3>Advanced Search</h3>
-      <div id="search-rows"></div>
-      <button type="button" class="add-search-row" onclick="addSearchRow()">+ Add Search Criteria</button>
-      <div style="margin-top: 20px;">
-        <label>
-          <input type="radio" name="search-logic" value="AND" checked> Match ALL criteria
-        </label>
-        <label style="margin-left: 15px;">
-          <input type="radio" name="search-logic" value="OR"> Match ANY criteria
-        </label>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Advanced Search</h3>
+        <span class="close-btn" onclick="hideAdvancedSearch()">&times;</span>
       </div>
-      <div style="margin-top: 20px; text-align: right;">
-        <button type="button" class="btn back-btn" onclick="hideAdvancedSearch()">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="applyAdvancedSearch()">Search</button>
+      <div class="modal-body">
+        <div class="search-filters">
+          <div class="filter-group">
+            <label>Search in columns:</label>
+            <div id="column-search-options"></div>
+          </div>
+          <div class="filter-group">
+            <label>Search term:</label>
+            <input type="text" id="advanced-search-term" placeholder="Enter search term...">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="applyAdvancedSearch()" class="btn btn-primary">Search</button>
+        <button onclick="clearAdvancedSearch()" class="btn">Clear</button>
+        <button onclick="hideAdvancedSearch()" class="btn">Cancel</button>
       </div>
     </div>
   `;
-  
   document.body.appendChild(modal);
-  advancedSearchModal = modal;
   
-  // Close on click outside
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) hideAdvancedSearch();
+  // Populate column options
+  const columnOptions = document.getElementById('column-search-options');
+  const checkboxes = document.querySelectorAll('.col-checkbox');
+  checkboxes.forEach(cb => {
+    const label = document.createElement('label');
+    label.innerHTML = `<input type="checkbox" value="${cb.value}" checked> ${cb.value}`;
+    columnOptions.appendChild(label);
   });
   
-  // Add initial search row
-  addSearchRow();
-}
-
-function addSearchRow() {
-  const searchRows = document.getElementById('search-rows');
-  const table = document.getElementById('search-box')?.getAttribute('data-table') || '';
-  
-  // Get available columns
-  const columns = Array.from(document.querySelectorAll('.col-checkbox')).map(cb => cb.value);
-  
-  const row = document.createElement('div');
-  row.className = 'search-row';
-  row.innerHTML = `
-    <select class="search-column">
-      ${columns.map(col => `<option value="${col}">${col}</option>`).join('')}
-    </select>
-    <select class="search-operator">
-      <option value="LIKE">Contains</option>
-      <option value="=">Equals</option>
-      <option value="!=">Not Equals</option>
-      <option value=">">Greater Than</option>
-      <option value="<">Less Than</option>
-      <option value="LIKE%">Starts With</option>
-      <option value="%LIKE">Ends With</option>
-    </select>
-    <input type="text" class="search-value" placeholder="Search value">
-    <button type="button" class="remove-row" onclick="removeSearchRow(this)">Remove</button>
-  `;
-  
-  searchRows.appendChild(row);
-}
-
-function removeSearchRow(btn) {
-  const row = btn.closest('.search-row');
-  if (document.querySelectorAll('.search-row').length > 1) {
-    row.remove();
-  }
+  modal.style.display = 'block';
 }
 
 function applyAdvancedSearch() {
-  const rows = document.querySelectorAll('.search-row');
-  const logic = document.querySelector('input[name="search-logic"]:checked').value;
-  
-  const criteria = Array.from(rows).map(row => {
-    return {
-      column: row.querySelector('.search-column').value,
-      operator: row.querySelector('.search-operator').value,
-      value: row.querySelector('.search-value').value
-    };
-  }).filter(c => c.value.trim() !== '');
-  
-  if (criteria.length === 0) {
-    showMessage('Please enter at least one search criteria', 'warning');
-    return;
-  }
-  
-  // Build search string (simplified - in a real implementation, this would be handled server-side)
-  const searchString = criteria.map(c => `${c.column}:${c.operator}:${c.value}`).join(`|${logic}|`);
-  
+  const searchTerm = document.getElementById('advanced-search-term').value;
   const searchBox = document.getElementById('search-box');
+  if (searchBox && searchTerm) {
+    searchBox.value = searchTerm;
+    searchBox.dispatchEvent(new Event('keydown', { key: 'Enter' }));
+  }
+  hideAdvancedSearch();
+}
+
+function clearAdvancedSearch() {
+  const searchTerm = document.getElementById('advanced-search-term');
+  const searchBox = document.getElementById('search-box');
+  if (searchTerm) searchTerm.value = '';
   if (searchBox) {
-    searchBox.value = searchString;
-    hideAdvancedSearch();
-    // Trigger search
-    searchBox.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    searchBox.value = '';
+    searchBox.dispatchEvent(new Event('input'));
   }
 }
 
-// Date filter functionality
+// Date Filter functionality
 function applyDateFilter() {
+  const dateFrom = document.getElementById('date-from').value;
+  const dateTo = document.getElementById('date-to').value;
   const dateColumn = document.getElementById('date-column-select')?.value || 
-                    document.querySelector('.date-filters select')?.value;
-  const dateFrom = document.getElementById('date-from')?.value;
-  const dateTo = document.getElementById('date-to')?.value;
+                    document.querySelectorAll('[data-col]')[0]?.getAttribute('data-col');
   
   if (!dateFrom && !dateTo) {
-    showMessage('Please select at least one date', 'warning');
+    alert('Please select at least one date');
     return;
   }
   
-  const searchBox = document.getElementById('search-box');
-  if (searchBox && dateColumn) {
-    let dateFilter = `${dateColumn}:date:`;
-    if (dateFrom && dateTo) {
-      dateFilter += `${dateFrom}to${dateTo}`;
-    } else if (dateFrom) {
-      dateFilter += `from${dateFrom}`;
-    } else {
-      dateFilter += `to${dateTo}`;
-    }
+  // Apply client-side date filtering
+  document.querySelectorAll('.table-row').forEach(tr => {
+    const dateCell = tr.querySelector(`td[data-col="${dateColumn}"]`);
+    if (!dateCell) return;
     
-    // Combine with existing search
-    const currentSearch = searchBox.value;
-    searchBox.value = currentSearch ? `${currentSearch} ${dateFilter}` : dateFilter;
+    const cellValue = dateCell.textContent.trim();
+    const cellDate = new Date(cellValue);
     
-    // Trigger search
-    searchBox.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    let show = true;
+    if (dateFrom && cellDate < new Date(dateFrom)) show = false;
+    if (dateTo && cellDate > new Date(dateTo)) show = false;
+    
+    tr.style.display = show ? '' : 'none';
+  });
+}
+
+function toggleDateFilters() {
+  const dateFilters = document.getElementById('date-filters');
+  if (dateFilters) {
+    dateFilters.style.display = dateFilters.style.display === 'none' ? 'block' : 'none';
   }
 }
 
-// Show message to user
-function showMessage(message, type = 'info') {
-  const messageDiv = document.createElement('div');
-  messageDiv.className = `${type}-message`;
-  messageDiv.textContent = message;
-  messageDiv.style.position = 'fixed';
-  messageDiv.style.top = '20px';
-  messageDiv.style.right = '20px';
-  messageDiv.style.zIndex = '10001';
-  messageDiv.style.padding = '12px 16px';
-  messageDiv.style.borderRadius = '6px';
-  messageDiv.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)';
+function clearDateFilter() {
+  const dateFrom = document.getElementById('date-from');
+  const dateTo = document.getElementById('date-to');
+  if (dateFrom) dateFrom.value = '';
+  if (dateTo) dateTo.value = '';
   
-  document.body.appendChild(messageDiv);
-  
-  setTimeout(() => {
-    messageDiv.style.opacity = '0';
-    setTimeout(() => messageDiv.remove(), 300);
-  }, 3000);
+  // Show all rows again
+  document.querySelectorAll('.table-row').forEach(tr => {
+    tr.style.display = '';
+  });
 }
 
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-  const searchBox = document.getElementById('search-box');
-  
-  if (searchBox) {
-    // Instant client-side filtering
-    searchBox.addEventListener('input', function() {
-      const val = searchBox.value.toLowerCase();
-      const rows = document.querySelectorAll('.table-row');
-      
-      // Show/hide loading state
-      const tableWrapper = document.querySelector('.table-wrapper');
-      if (tableWrapper) {
-        tableWrapper.classList.toggle('loading', val.length > 0);
-      }
-      
-      rows.forEach(tr => {
-        let show = false;
-        const cells = tr.querySelectorAll('td[data-col]');
-        cells.forEach(td => {
-          if (td.innerText.toLowerCase().indexOf(val) !== -1) {
-            show = true;
-          }
-        });
-        tr.style.display = show ? '' : 'none';
+function toggleViewEdit() {
+  var form = document.getElementById('view-edit-form');
+  var edit = form.classList.toggle('edit-mode');
+  var inputs = form.querySelectorAll('input:not([type=submit])');
+  inputs.forEach(i => {
+    if(edit)i.removeAttribute('readonly');
+    else i.setAttribute('readonly', 'readonly');
+  });
+  var save = document.getElementById('view-edit-save-btn');
+  if (edit) {
+    save.style.display = 'inline-block';
+    document.getElementById('view-edit-toggle-btn').textContent = 'Cancel Edit';
+  } else {
+    save.style.display = 'none';
+    document.getElementById('view-edit-toggle-btn').textContent = 'Edit';
+  }
+}
+
+function duplicate(){
+  alert("Duplicate not ready!");
+}
+
+(function(){
+      document.addEventListener('click', function(ev){
+        const dd = document.getElementById('columns-dropdown');
+        if (!dd) return;
+        if (!dd.contains(ev.target)) dd.classList.remove('open');
       });
-      
-      // Remove loading state after a short delay
-      setTimeout(() => {
-        if (tableWrapper) tableWrapper.classList.remove('loading');
-      }, 200);
-    });
 
-    // Enter key triggers server-side search
-    searchBox.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const table = searchBox.getAttribute('data-table');
-        const visible = getVisibleColumns().filter(x => x !== '__actions__' && x !== '__editdelete__');
-        navigateWithParams(table, { visible: visible, page: '1' });
+      // apply initial visibility based on checkboxes (checkboxes were rendered checked server-side)
+      const cboxes = document.querySelectorAll('.col-checkbox');
+      if (cboxes.length) {
+        const visibleNow = Array.from(cboxes).filter(cb=>cb.checked).map(cb=>cb.value).concat(['__actions__','__editdelete__']);
+        applyColumnVisibility(visibleNow);
+      } else {
+        // if no checkboxes (shouldn't happen), ensure action columns visible
+        applyColumnVisibility(['__actions__','__editdelete__']);
       }
-    });
-  }
 
-  // Column checkboxes: attach change handlers
-  document.querySelectorAll('.col-checkbox').forEach(cb => {
-    cb.addEventListener('change', onColumnCheckboxChange);
-  });
-
-  // Initialize visibility from preselected checkboxes
-  const visibleNow = Array.from(document.querySelectorAll('.col-checkbox'))
-    .filter(cb => cb.checked)
-    .map(cb => cb.value)
-    .concat(['__actions__', '__editdelete__']);
-  applyColumnVisibility(visibleNow);
-
-  // Initialize sortOrder from server-sent attributes (if present)
-  const sortAttr = document.getElementById('table-root')?.getAttribute('data-sort') || '';
-  if (sortAttr) {
-    const toks = sortAttr.split(',');
-    sortOrder = [];
-    for (let i = 0; i < toks.length; i += 2) {
-      const col = toks[i];
-      const dir = toks[i + 1] || 'asc';
-      if (col) sortOrder.push({ col, dir });
-    }
-  }
-
-  // Close dropdowns when clicking outside
-  document.addEventListener('click', function(ev) {
-    const dd = document.getElementById('columns-dropdown');
-    if (dd && !dd.contains(ev.target)) {
-      dd.classList.remove('open');
-    }
-  });
-
-  // Initialize column resizing (simplified implementation)
-  initializeColumnResizing();
-  
-  // Initialize keyboard shortcuts
-  initializeKeyboardShortcuts();
-});
-
-// Column resizing functionality
-function initializeColumnResizing() {
-  const headers = document.querySelectorAll('th');
-  
-  headers.forEach(header => {
-    if (header.getAttribute('data-col') === '__actions__' || 
-        header.getAttribute('data-col') === '__editdelete__') return;
-    
-    const resizeHandle = document.createElement('div');
-    resizeHandle.className = 'resize-handle';
-    header.appendChild(resizeHandle);
-    header.classList.add('resizable-column');
-    
-    let isResizing = false;
-    let startX, startWidth;
-    
-    resizeHandle.addEventListener('mousedown', (e) => {
-      isResizing = true;
-      startX = e.clientX;
-      startWidth = parseInt(document.defaultView.getComputedStyle(header).width, 10);
-      resizeHandle.classList.add('active');
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      e.preventDefault();
-    });
-    
-    function handleMouseMove(e) {
-      if (!isResizing) return;
-      const width = startWidth + e.clientX - startX;
-      header.style.width = width + 'px';
-    }
-    
-    function handleMouseUp() {
-      isResizing = false;
-      resizeHandle.classList.remove('active');
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    }
-  });
-}
-
-// Keyboard shortcuts
-function initializeKeyboardShortcuts() {
-  document.addEventListener('keydown', (e) => {
-    // Ctrl/Cmd + K for quick search focus
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-      e.preventDefault();
-      const searchBox = document.getElementById('search-box');
-      if (searchBox) {
-        searchBox.focus();
-        searchBox.select();
-      }
-    }
-    
-    // Escape to clear search or close modals
-    if (e.key === 'Escape') {
-      const searchBox = document.getElementById('search-box');
-      if (searchBox && document.activeElement === searchBox) {
-        searchBox.value = '';
-        searchBox.dispatchEvent(new Event('input'));
-      } else if (advancedSearchModal && advancedSearchModal.classList.contains('active')) {
-        hideAdvancedSearch();
-      }
-    }
-    
-    // Ctrl/Cmd + Enter for advanced search
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault();
-      showAdvancedSearch();
-    }
-  });
-}
+      // attach change handlers (in case client didn't pick up earlier)
+      document.querySelectorAll('.col-checkbox').forEach(cb => cb.addEventListener('change', onColumnCheckboxChange));
+    })();
